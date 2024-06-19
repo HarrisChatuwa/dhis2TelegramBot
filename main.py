@@ -1,20 +1,71 @@
 from typing import Final
-from telegram import Update
+from telegram import Update, File
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+import json
+import requests
+import tempfile
+import logging
 
 
 TOKEN: Final = '7326142052:AAGQGUUIHKiRkEF72EQJUwS8fmaIxQhPOz0'
 BOT_USERNAME: Final = '@Dhis2ExpertsBot'
 
+DHIS2_SERVER: Final = 'https://play.im.dhis2.org/stable-2-41-0'
+DHIS2_USERNAME: Final = 'admin'
+DHIS2_PASSWORD: Final = 'district'
+
+logging.basicConfig(
+    level=logging.DEBUG,  # Set the logging level to DEBUG or higher
+    format='%(asctime)s - %(levelname)s - %(message)s'  # Define log message format
+)
+
+
 #Commands
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text('Hello, I am the Dhis2ExpertsBot')
+    await update.message.reply_text('Hey, Send me a JSON file exported from DHIS2 SDK, and I will import it to the DHIS2 server.')
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text('I am only here to help import the data to the server')
 
-async def custom_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text('Custom Command')
+async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    document = update.message.document
+    file = await context.bot.get_file(document.file_id)
+
+    with tempfile.NamedTemporaryFile(delete=False) as tf:
+        await file.download_to_drive(tf.name)
+        tf.flush()
+        tf.seek(0)
+        json_data = json.load(tf)
+
+    logging.info(f'Received file from user {update.message.chat.id}: {document.file_name}')
+    
+    try:
+        response = import_to_dhis2(json_data)
+
+        if response.status_code == 200:
+            await update.message.reply_text("File successfully imported to your DHSI2 Server")
+        else:
+            await update.message.reply_text(f'Failed to import file to DHIS2. Status code: {response.status_code}')
+            logging.error(f'Failed to import file to DHIS2. Status code: {response.status_code}')
+    except Exception as e:
+        await update.message.reply_text('An error occurred while processing the file.')
+        logging.error(f'Error processing file: {str(e)}')
+
+def import_to_dhis2(data):
+    headers = {'Content-Type': 'application/json'}
+    try:
+        response = requests.post(
+            f'{DHIS2_SERVER}/api/metadata',
+            auth=(DHIS2_USERNAME, DHIS2_PASSWORD),
+            headers=headers,
+            data=json.dumps(data)
+        )
+        response.raise_for_status()  # Raise an error for bad response status codes
+        logging.info(f'Sent data to DHIS2 server. Status code: {response.status_code}')
+        return response
+    except requests.exceptions.RequestException as e:
+        logging.error(f'Error sending data to DHIS2 server: {str(e)}')
+        raise  # Re-raise the exception to propagate it
 
 #Responses
 def handle_response(text: str) -> str:
@@ -35,14 +86,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     print(f'User ({update.message.chat.id}) in {message_type}: "{text}"')
 
-    if message_type == 'group':
-        if BOT_USERNAME in text:
-            new_text: str = text.replace(BOT_USERNAME, '').strip()
-            response: str = handle_response(new_text)
-        else:
-            return
-    else:
-        response: str = handle_response(text)
+    response: str = handle_response(text)
 
     print('Bot: ', response)
     await update.message.reply_text(response)
@@ -54,10 +98,15 @@ if __name__ == '__main__':
     print('Starting bot...')
     app = Application.builder().token(TOKEN).build()
 
+    #Handlers
+    start_handler = CommandHandler('start', start_command)
+    help_handler = CommandHandler('help', help_command)
+    file_handler = MessageHandler(filters.Document.MimeType("application/json"), handle_file)
+
     #Commands
-    app.add_handler(CommandHandler('start', start_command))
-    app.add_handler(CommandHandler('help', help_command))
-    app.add_handler(CommandHandler('custom', custom_command))
+    app.add_handler(start_handler)
+    app.add_handler(help_handler)
+    app.add_handler(file_handler)
 
     #Messages
     app.add_handler(MessageHandler(filters.TEXT, handle_message))
