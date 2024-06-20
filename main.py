@@ -47,6 +47,8 @@ async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if response.status_code == 200:
             await update.message.reply_text("File successfully imported to the DHSI2 Server")
+        if response.status_code == 409:
+            await update.message.reply_text("Server iss currently down, please try again later")
         else:
             await update.message.reply_text(f'Failed to import file to the DHIS2 server. Status code: {response.status_code}')
             logging.error(f'Failed to import file to DHIS2. Status code: {response.status_code}')
