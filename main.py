@@ -10,7 +10,7 @@ import logging
 TOKEN: Final = '7326142052:AAGQGUUIHKiRkEF72EQJUwS8fmaIxQhPOz0'
 BOT_USERNAME: Final = '@Dhis2ExpertsBot'
 
-DHIS2_SERVER: Final = 'https://play.im.dhis2.org/stable-2-41-0'
+DHIS2_SERVER: Final = 'https://play.im.dhis2.org/stable-2-38-6'
 DHIS2_USERNAME: Final = 'admin'
 DHIS2_PASSWORD: Final = 'district'
 
@@ -63,7 +63,7 @@ def import_to_dhis2(data):
     headers = {'Content-Type': 'application/json'}
     try:
         response = requests.post(
-            f'{DHIS2_SERVER}/api/metadata',
+            f'{DHIS2_SERVER}/api/metadata?atomicMode=NONE',
             auth=(DHIS2_USERNAME, DHIS2_PASSWORD),
             headers=headers,
             data=json.dumps(data)
