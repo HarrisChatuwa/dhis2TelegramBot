@@ -47,10 +47,13 @@ async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if response.status_code == 200:
             await update.message.reply_text("File successfully imported to the DHSI2 Server")
-        if response.status_code == 409:
-            await update.message.reply_text("Server iss currently down, please try again later")
+        elif response.status_code == 400:
+            await update.message.reply_text("Invalid metadata sent to the server, please make sure it was exported from the DHIS2 App")
+        elif response.status_code == 409:
+            await update.message.reply_text("Import Error - Conflict with Existing Data - Contact Admin")
         else:
-            await update.message.reply_text(f'Failed to import file to the DHIS2 server. Status code: {response.status_code}')
+            await update.message.reply_text(f'Import Error occured, Contact Admin for assistance')
+            # await update.message.reply_text(f'Failed to import file to the DHIS2 server. Status code: {response.json()}')
             logging.error(f'Failed to import file to DHIS2. Status code: {response.status_code}')
     except Exception as e:
         await update.message.reply_text('An error occurred while processing the file.')
