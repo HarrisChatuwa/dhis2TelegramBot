@@ -22,10 +22,13 @@ logging.basicConfig(
 
 #Commands
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text('Hey, Send me a JSON file exported from DHIS2 SDK, and I will import it to the DHIS2 server.')
+    await update.message.reply_text('Hello, please send me tracker app data and I will import it to the DHIS2 server for you.')
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text('I am only here to help import the data to the server')
+
+async def invalid_file_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text('Invalid file, only .JSON files supported')
 
 async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     document = update.message.document
@@ -43,9 +46,9 @@ async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
         response = import_to_dhis2(json_data)
 
         if response.status_code == 200:
-            await update.message.reply_text("File successfully imported to your DHSI2 Server")
+            await update.message.reply_text("File successfully imported to the DHSI2 Server")
         else:
-            await update.message.reply_text(f'Failed to import file to DHIS2. Status code: {response.status_code}')
+            await update.message.reply_text(f'Failed to import file to the DHIS2 server. Status code: {response.status_code}')
             logging.error(f'Failed to import file to DHIS2. Status code: {response.status_code}')
     except Exception as e:
         await update.message.reply_text('An error occurred while processing the file.')
@@ -60,7 +63,7 @@ def import_to_dhis2(data):
             headers=headers,
             data=json.dumps(data)
         )
-        response.raise_for_status()  # Raise an error for bad response status codes
+        # response.raise_for_status()  # Raise an error for bad response status codes
         logging.info(f'Sent data to DHIS2 server. Status code: {response.status_code}')
         return response
     except requests.exceptions.RequestException as e:
@@ -74,11 +77,9 @@ def handle_response(text: str) -> str:
     if 'hello' in processed:
         return 'Hey There'
     if 'how are you' in processed:
-        return 'I am good'
-    if 'i love python' in processed:
-        return 'Remember to subscribe!'
-    
-    return 'I do not understand shii'
+        return 'I am good thanks, how are you?'
+        
+    return 'I do not understand, I am only here to help import the data to the server.'
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message_type: str = update.message.chat.type
@@ -107,9 +108,10 @@ if __name__ == '__main__':
     app.add_handler(start_handler)
     app.add_handler(help_handler)
     app.add_handler(file_handler)
+    app.add_handler(MessageHandler(filters.TEXT, handle_message))
+    app.add_handler(MessageHandler(~filters.Document.MimeType("application/json"), invalid_file_handler))
 
     #Messages
-    app.add_handler(MessageHandler(filters.TEXT, handle_message))
 
     #Errors
     app.add_error_handler(error)
